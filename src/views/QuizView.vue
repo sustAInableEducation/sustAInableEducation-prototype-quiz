@@ -7,7 +7,7 @@
     <div v-if="errorWhileLoading" class="error">Fehler beim Laden der Antwort!</div>
     
     <!-- Nachrichten anzeigen -->
-    <div v-for="(message, index) in displayedQuestions.slice(0, questionIndex)" :key="index" class="message-container">
+    <div v-for="(message, index) in displayedQuestions.slice(0, currentQuestionIndex)" :key="index" class="message-container">
       <div class="assistant-message">
         <h3 class="message-title">{{ message.quizTitle }}</h3>
         <p class="message-question">{{ message.questionTitle }}</p>
@@ -45,7 +45,7 @@ const quizTitle = ref<string>('')
 const selectedAnswers = ref<(number | null)[]>([])  // Array, um die ausgewählten Antworten zu verfolgen
 const correctAnswers: number[] = []
 
-const questionIndex = ref<number>(1)
+const currentQuestionIndex = ref<number>(1)
 const displayedQuestions = computed<DisplayedQuestion[]>(() => {
   const filteredMessages = messages.value.filter(
     message => message.role === 'assistant' && JSON.parse(message.content).story === undefined,
@@ -151,8 +151,9 @@ const submitAnswer = (questionIndex: number) => {
       displayedQuestions.value[questionIndex].solved = -1
     }
 
-   questionIndex++;
-
+    console.log(currentQuestionIndex.value)
+   currentQuestionIndex.value++;
+  // nextTick()
     return checkAnswer
   } else {
     alert('Bitte eine Antwort auswählen!')
@@ -235,7 +236,7 @@ onMounted(() => {
 }
 
 .message-options li.selected {
-  background-color: #45A249;
+  background-color: #276677;   /* 45A249 */
   color: white;
 }
 
@@ -245,7 +246,7 @@ onMounted(() => {
 }
 
 .submit-button {
-  background-color: #2C692F;
+  background-color: #38b1d3;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -257,6 +258,6 @@ onMounted(() => {
 }
 
 .submit-button:hover {
-  background-color: #1d4e1c;
+  background-color: #223C74;
 }
 </style>
