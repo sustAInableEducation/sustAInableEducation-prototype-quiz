@@ -7,7 +7,7 @@
     <div v-if="errorWhileLoading" class="error">Fehler beim Laden der Antwort!</div>
     
     <!-- Nachrichten anzeigen -->
-    <div v-for="(message, index) in displayedQuestions" :key="index" class="message-container">
+    <div v-for="(message, index) in displayedQuestions.slice(0, questionIndex)" :key="index" class="message-container">
       <div class="assistant-message">
         <h3 class="message-title">{{ message.quizTitle }}</h3>
         <p class="message-question">{{ message.questionTitle }}</p>
@@ -45,6 +45,7 @@ const quizTitle = ref<string>('')
 const selectedAnswers = ref<(number | null)[]>([])  // Array, um die ausgewählten Antworten zu verfolgen
 const correctAnswers: number[] = []
 
+const questionIndex = ref<number>(1)
 const displayedQuestions = computed<DisplayedQuestion[]>(() => {
   const filteredMessages = messages.value.filter(
     message => message.role === 'assistant' && JSON.parse(message.content).story === undefined,
@@ -58,6 +59,8 @@ const displayedQuestions = computed<DisplayedQuestion[]>(() => {
         questionTitle: el.question,
         options: el.options,
         correctAnswer: el.correctAnswer,
+        answered: false,
+        solved: 0
       })
     })
   })
@@ -138,6 +141,17 @@ const submitAnswer = (questionIndex: number) => {
   if (selectedAnswerIndex !== null) {
     const checkAnswer = correctAnswers[questionIndex] === selectedAnswerIndex
     alert(`Antwort ${checkAnswer ? 'korrekt' : 'falsch'}`)
+
+    
+    if (checkAnswer == true) {
+      displayedQuestions.value[questionIndex].solved = 1
+    }
+
+    if (checkAnswer == false) {
+      displayedQuestions.value[questionIndex].solved = -1
+    }
+
+   questionIndex++;
 
     return checkAnswer
   } else {
