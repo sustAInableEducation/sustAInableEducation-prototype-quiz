@@ -36,22 +36,25 @@ watch(displayedMessages, () => {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   })
 })
+function saveMesssages(){
+  localStorage.messages = JSON.stringify(messages.value)
+}
 
 const generateNextPart = (userMessage: Message) => {
   isGenerating.value = true
   messages.value.push(userMessage)
   const data = {
-    model: 'llama3.1',
+    model: 'meta-llama/Llama-3.3-70B-Instruct',
     messages: messages.value,
-    format: 'json',
-    stream: false,
+    response_format: {"type":"json_object"}
   }
   const config = {
     method: 'post',
     maxBodyLength: Infinity,
-    url: import.meta.env.VITE_LLM_API_URL + '/chat',
+    url: import.meta.env.VITE_API_URL,
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}`
     },
     data: data,
   }
@@ -59,12 +62,10 @@ const generateNextPart = (userMessage: Message) => {
   axios
     .request(config)
     .then(response => {
-      const assistantMessage = response.data.message
+      const assistantMessage = response.data.choices[0].message
+      assistantMessage.content = assistantMessage.content.replace(/(\r\n|\n|\r)/gm, '')
       messages.value.push(assistantMessage)
       storyTitle.value = JSON.parse(assistantMessage.content).title
-      //console.log(assistantMessage)
-      //console.log(storyTitle.value)
-      console.log(displayedMessages.value)
     })
     .catch(error => {
       console.log(error)
@@ -158,28 +159,20 @@ onMounted(() => {
         <p>{{ message.story }}</p>
         <div class="flex flex-row justify-center gap-12 pt-4">
           <Button
-            label="Weiter zum Feedback"
+            label="Weiter zum Quiz"
             class="w-64"
             @click="
+              saveMesssages();
               $router.push({
-                name: 'feedback',
-              })
+                name: 'quiz',
+              });
             "
           />
         </div>
       </div>
     </div>
-    <div
-      v-if="isGenerating"
-      class="flex flex-row justify-center gap-12 pt-4 pb-6"
-    >
+    <div v-if="isGenerating" class="flex flex-row justify-center gap-12 pt-4 pb-6">
       <ProgressSpinner />
     </div>
-  </div>
-  <div
-    v-if="!errorWhileGenerating && storyTitle === '' && isGenerating"
-    class="h-[calc(100vh-7rem)] flex justify-center items-center"
-  >
-    <ProgressSpinner />
   </div>
 </template>
