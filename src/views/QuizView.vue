@@ -2,57 +2,62 @@
   <div class="quiz-container">
     <!-- Ladeanzeige -->
     <div v-if="isLoading" class="loading">Lädt...</div>
-    
+
     <!-- Fehleranzeige -->
     <div v-if="errorWhileLoading" class="error">Fehler beim Laden der Antwort!</div>
-    
+
     <!-- Nachrichten anzeigen -->
-    <div v-for="(message, index) in displayedQuestions.slice(0, currentQuestionIndex)" :key="index" class="message-container">
+    <div v-for="(message, index) in displayedQuestions.slice(0, currentQuestionIndex)" :key="index"
+      class="message-container">
       <div class="assistant-message">
         <h3 class="message-title">{{ message.quizTitle }}</h3>
         <p class="message-question">{{ message.questionTitle }}</p>
         <ul class="message-options">
-          <li 
-            v-for="(option, optionIndex) in message.options" 
-            :key="optionIndex" 
-            @click="selectAnswer(option, index, optionIndex)" 
-            :class="{'selected': selectedAnswers[index] === optionIndex}"
-          >
+          <li  v-for="(option, optionIndex) in message.options" :key="optionIndex" @click="selectAnswer(option)" :class="{ 'selected': option === selectedAnswer}">
             {{ option }}
           </li>
         </ul>
 
         <!-- Container für den Button zum Senden der Antwort -->
-        <div v-if="selectedAnswers[index] !== null" class="submit-button-container">
-          <button @click="submitAnswer(index)" class="submit-button">Antwort überprüfen</button>
+        <div v-if="selectedAnswer !== null" class="submit-button-container">
+          <button @click="submitAnswer(index)" class="submit-button" :class="getClassForAnswer(index)">
+            Antwort überprüfen
+          </button>
         </div>
+        <p v-if="displayedQuestions[index].solved !== 0" 
+          :class="{'correct': displayedQuestions[index].solved === 1, 'wrong': displayedQuestions[index].solved === -1}">
+          {{ displayedQuestions[index].solved === 1 ? 'Richtig' : 'Falsch' }}
+        </p>
       </div>
-      
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed, watch, nextTick } from 'vue'
-import axios from 'axios'
-import type { Message } from '../types/message'
-import type { DisplayedQuestion } from '@/types/displayedQuestion'
-import { quizzes } from '@/data/quizzes'
 
-const errorWhileLoading = ref<boolean>(false)
-const messages = ref<Message[]>([])
-const quizTitle = ref<string>('')
-const selectedAnswers = ref<(number | null)[]>([])  // Array, um die ausgewählten Antworten zu verfolgen
-const correctAnswers: number[] = []
+import { onMounted, ref, computed, watch, nextTick } from 'vue';
+import axios from 'axios';
+import type { Message } from '../types/message';
+import type { DisplayedQuestion } from '@/types/displayedQuestion';
+import { quizzes } from '@/data/quizzes';
 
-const currentQuestionIndex = ref<number>(1)
+
+const errorWhileLoading = ref<boolean>(false);
+const messages = ref<Message[]>([]);
+const quizTitle = ref<string>('');
+const selectedAnswer = ref<(string)>(null);
+
+
+
+
+const currentQuestionIndex = ref<number>(1);
 const displayedQuestions = computed<DisplayedQuestion[]>(() => {
   const filteredMessages = messages.value.filter(
     message => message.role === 'assistant' && JSON.parse(message.content).story === undefined,
-  )
-  const questions: DisplayedQuestion[] = []
+  );
+  const questions: DisplayedQuestion[] = [];
   filteredMessages.forEach(message => {
-    const content = JSON.parse(message.content)
+    const content = JSON.parse(message.content);
     content.questionarray.forEach((el: any) => {
       questions.push({
         quizTitle: content.title,
@@ -60,37 +65,37 @@ const displayedQuestions = computed<DisplayedQuestion[]>(() => {
         options: el.options,
         correctAnswer: el.correctAnswer,
         answered: false,
-        solved: 0
-      })
-    })
-  })
-  return questions
-})
+        solved: 0,
+      });
+    });
+  });
+  return questions;
+});
 
-const isLoading = ref<boolean>(false)
+const isLoading = ref<boolean>(false);
 
 function loadMessages() {
   if (localStorage.messages) {
-    return JSON.parse(localStorage.messages)
+    return JSON.parse(localStorage.messages);
   }
-  return [] // Fallback, falls keine Nachrichten gefunden werden
+  return []; // Fallback, falls keine Nachrichten gefunden werden
 }
 
 watch(displayedQuestions, () => {
   nextTick(() => {
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-  })
-})
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  });
+});
 
 const generateNextQuestion = (userMessage: Message) => {
-  isLoading.value = true
-  messages.value.push(userMessage)
+  isLoading.value = true;
+  messages.value.push(userMessage);
 
   const data = {
     model: 'meta-llama/Llama-3.3-70B-Instruct',
     messages: messages.value,
     response_format: { type: 'json_object' },
-  }
+  };
 
   const config = {
     method: 'post',
@@ -101,72 +106,77 @@ const generateNextQuestion = (userMessage: Message) => {
       Authorization: `Bearer ${import.meta.env.VITE_API_KEY}`,
     },
     data: data,
-  }
+  };
 
   axios
     .request(config)
     .then(response => {
-      const assistantMessage = response.data.choices[0].message
-      assistantMessage.content = assistantMessage.content.replace(/(\r\n|\n|\r)/gm, '')
-      messages.value.push(assistantMessage)
-      const content = JSON.parse(assistantMessage.content)
-      correctAnswers.push(content.rightAnswerindex)
-      quizTitle.value = content.title
+      const assistantMessage = response.data.choices[0].message;
+      assistantMessage.content = assistantMessage.content.replace(/(\r\n|\n|\r)/gm, '');
+      messages.value.push(assistantMessage);
+      const content = JSON.parse(assistantMessage.content);
+      quizTitle.value = content.title;
     })
     .catch(error => {
-      console.error(error)
-      errorWhileLoading.value = true
+      console.error(error);
+      errorWhileLoading.value = true;
     })
     .finally(() => {
-      isLoading.value = false
-    })
-}
+      isLoading.value = false;
+    });
+};
 
 const startQuiz = (systemMessage: Message) => {
-  isLoading.value = true
-  messages.value.push(systemMessage)
+  isLoading.value = true;
+  messages.value.push(systemMessage);
   generateNextQuestion({
     role: 'user',
     content: quizzes.userPrompt,
-  })
-}
+  });
+};
 
-const selectAnswer = (option: string, questionIndex: number, optionIndex: number) => {
-  selectedAnswers.value[questionIndex] = optionIndex
-}
+const selectAnswer = (option: string) => {
+  selectedAnswer.value = option;
+};
+
+const checkAnswer = (index: number) => {
+  return displayedQuestions.value[index].correctAnswer === selectedAnswer.value;
+};
+
+const getClassForAnswer = (index: number) => {
+  const isCorrect = checkAnswer(index);
+  return isCorrect ? 'correct' : 'wrong';
+};
 
 const submitAnswer = (questionIndex: number) => {
-  const selectedAnswerIndex = selectedAnswers.value[questionIndex]
+  const result = checkAnswer(questionIndex);
 
-  if (selectedAnswerIndex !== null) {
-    const checkAnswer = correctAnswers[questionIndex] === selectedAnswerIndex
-    alert(`Antwort ${checkAnswer ? 'korrekt' : 'falsch'}`)
+  if (selectedAnswer.value !== null) {
+     // alert(`Antwort ${result ? 'korrekt' : 'falsch'}`);
 
-    
-    if (checkAnswer == true) {
-      displayedQuestions.value[questionIndex].solved = 1
+    if (result === true) {
+      displayedQuestions.value[questionIndex].solved = 1;
+
     }
 
-    if (checkAnswer == false) {
-      displayedQuestions.value[questionIndex].solved = -1
+    else {
+      displayedQuestions.value[questionIndex].solved = -1;
+
     }
 
-    console.log(currentQuestionIndex.value)
-   currentQuestionIndex.value++;
-  // nextTick()
-    return checkAnswer
+    currentQuestionIndex.value++;
   } else {
-    alert('Bitte eine Antwort auswählen!')
+    alert('Bitte eine Antwort auswählen!');
   }
-}
+};
 
 onMounted(() => {
-  messages.value = loadMessages()
+  messages.value = loadMessages();
   startQuiz({
     role: 'system',
     content: quizzes.systemPrompt,
-  })
-})
+  });
+});
 </script>
 
 <style scoped>
@@ -180,7 +190,8 @@ onMounted(() => {
   color: #333;
 }
 
-.loading, .error {
+.loading,
+.error {
   text-align: center;
   font-size: 1.2em;
   padding: 15px;
@@ -196,6 +207,14 @@ onMounted(() => {
 .error {
   background-color: #e74c3c;
   color: #fff;
+}
+
+.correct {
+  background-color: green;
+}
+
+.wrong {
+  background-color: #e74c3c;
 }
 
 .message-container {
@@ -235,29 +254,31 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.message-options li.selected {
-  background-color: #276677;   /* 45A249 */
-  color: white;
+
+
+.selected {
+  background-color: #2f87a0!important;
+  color: rgb(255, 255, 255);
+  
 }
 
+
 .submit-button-container {
-  text-align: center; /* Zentriert den Button horizontal */
-  margin-top: 10px; /* Optional: Abstand nach oben */
+  text-align: center;
+  margin-top: 10px;
 }
 
 .submit-button {
-  background-color: #38b1d3;
+  background-color: #2C692F;
   color: white;
   border: none;
   padding: 10px 20px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 1.2em;
-  width: auto; /* Stellt sicher, dass der Button nur so breit wie nötig ist */
-  display: inline-block; /* Macht den Button zu einem Inline-Block, damit er zentriert wird */
 }
 
 .submit-button:hover {
-  background-color: #223C74;
+  background-color: #1d4e1c;
 }
 </style>
